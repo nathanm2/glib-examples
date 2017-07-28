@@ -8,4 +8,4 @@ gobject: gobject.o
 	${CC} -o $@ ${inc} $(CFLAGS) $(CPPFLAGS) -L /home/nmiller/build/glib/lib -Wl,-rpath=/home/nmiller/build/glib/lib $< -lgobject-2.0 -lglib-2.0
 
 clean:
-	rm *.o
+	gobject rm *.o
