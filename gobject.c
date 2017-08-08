@@ -1,13 +1,12 @@
 #include <glib-object.h>
 
-typedef struct Foo
+typedef struct _Foo
 {
     GObject parent;
-
     int value;
 } Foo;
 
-typedef struct FooClass
+typedef struct _FooClass
 {
     GObjectClass parent;
 
@@ -29,8 +28,11 @@ GType foo_get_type(void)
     return foo_type;
 }
 
+#define FOO_TYPE (foo_get_type())
+
 int main(int argc, char* argv[])
 {
-    foo_get_type();
+    Foo* foo = (Foo*)g_object_new(FOO_TYPE, NULL);
+    foo->value = 42;
     return 0;
 }
