@@ -1,5 +1,8 @@
-gobject
 children
 delayed
 *.swp
 *.o
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+interface
