@@ -1,3 +1,5 @@
 gobject
+children
+delayed
 *.swp
 *.o
