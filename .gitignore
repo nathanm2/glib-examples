@@ -1,8 +1,10 @@
 children
 delayed
+hello
 *.swp
 *.o
 CMakeCache.txt
 CMakeFiles
 cmake_install.cmake
 interface
+Makefile

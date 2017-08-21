@@ -1,6 +1,8 @@
 #include <glib-object.h>
 #include <stdio.h>
 
+/** Resident Set Size: 2500/2800 vs 1128*/
+/** Private: 184 vs 88*/
 /* Base */
 #define X_TYPE_BASE x_base_get_type()
 G_DECLARE_DERIVABLE_TYPE(XBase, x_base, X, BASE, GObject);
@@ -106,9 +108,10 @@ void x_grandchild_class_init(XGrandchildClass* klass)
 
 int main(int argc, char* argv[])
 {
-    XBase* xbase = g_object_new(X_TYPE_GRANDCHILD, NULL);
+    XBase* xbase = g_object_new(X_TYPE_BASE, NULL);
     foo(xbase);
 
+    getchar();
     g_object_unref(xbase);
     return 0;
 }
