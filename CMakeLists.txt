@@ -18,8 +18,8 @@ setup_conan()
 #set( glib_build /home/nmiller/build/glib )
 #set( ENV{PKG_CONFIG_PATH} ${glib_build}/lib/pkgconfig )
 
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-set(CMAKE_INSTALL_RPATH ${glib_build}/lib)
+#set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+#set(CMAKE_INSTALL_RPATH ${glib_build}/lib)
 
 # Find the 'glib' and 'gobject' utilities:
 #find_package(PkgConfig REQUIRED)
