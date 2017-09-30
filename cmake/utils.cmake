@@ -61,32 +61,44 @@ endmacro()
 #
 # Takes a list of potential targets and returns the first valid one.
 #
-# select_target(<variable> [REQUIRED]
+# select_target(<target> [REQUIRED]
 #               [[TARGETS <target>...]
 #                [MODULE <package> <target>...]
-#                [CONFIG <package> <target>...]])
+#                [CONFIG <package> <target>...]
+#                [PKG_CONFIG <pkg_config_target>])
 #
 # If ``REQUIRED`` is specified the function will display an error and cause
 # CMake to skip generation if a valid target is not found.
 #
 # All targets are tested in order until the first valid target is found.
 #
-# The targets following TARGETS are simply tested.
+# The targets following TARGETS are simply tested for existence.
 #
 # The ``MODULE`` and ``CONFIG`` directives cause the function to first load a
 # package via ``find_package(<package> QUIET [MODULE|CONFIG])`` and then test
 # for valid targets.
 #
-# The ``TARGETS``, ``MODULE``, and ``CONFIG`` directives can be specified
-# multiple times and in any order.
+# The ``PKG_CONFIG`` directive will use the ``pkg-config`` utility to find the
+# specified target.
+#
+# The ``TARGETS``, ``MODULE``, ``CONFIG``, and ``PKG_CONFIG`` directives can be
+# specified multiple times and in any order.
 
 function(select_target out)
     set(required FALSE)
     set(start 1)
     set(mode "NONE")
     math(EXPR stop "${ARGC}-1")
-    set(${out} NOTFOUND PARENT_SCOPE)
     set(out_target NOTFOUND)
+
+    # Is ${out} already a target?  Then we have no work:
+    if(TARGET ${out})
+        message("Using prior '${out}' target.")
+        return()
+    endif()
+
+    # Strip the namespace from the 'out' (if any)
+    string(REGEX REPLACE "\.*::" "" out_name ${out})
 
     if(${ARGC} GREATER 1)
         if(${ARGV1} STREQUAL "REQUIRED")
@@ -95,9 +107,21 @@ function(select_target out)
         endif()
     endif()
 
+    # If the caller hasn't already called 'find_package(PkgConfig)' we will do
+    # it for them and issue a warning.
+    if(NOT DEFINED PKG_CONFIG_FOUND)
+        foreach(idx RANGE ${start} ${stop})
+            if("${ARGV${idx}}" STREQUAL "PKG_CONFIG")
+                message(WARNING "'find_package(PkgConfig)' should be run prior to calling 'select_target(...)'")
+                find_package(PkgConfig)
+                break()
+            endif()
+        endforeach()
+    endif()
+
     foreach(idx RANGE ${start} ${stop})
         set(argv "${ARGV${idx}}")
-        if("${ARGV${idx}}" MATCHES "TARGETS|MODULE|CONFIG")
+        if("${ARGV${idx}}" MATCHES "TARGETS|MODULE|CONFIG|PKG_CONFIG")
             set(mode ${argv})
             set(package FALSE)
         else()
@@ -105,6 +129,13 @@ function(select_target out)
                 if(TARGET ${ARGV${idx}})
                     message(STATUS "${out} found: TARGETS ${ARGV${idx}}")
                     set(out_target ${ARGV${idx}})
+                    break()
+                endif()
+            elseif("${mode}" STREQUAL "PKG_CONFIG" AND PKG_CONFIG_FOUND)
+                pkg_check_modules(${out_name} IMPORTED_TARGET ${ARGV${idx}})
+                if(TARGET PkgConfig::${out_name})
+                    set(out_target PkgConfig::${out_name})
+                    message(STATUS "${out} found: PKG_CONFIG ${ARGV${idx}}")
                     break()
                 endif()
             elseif(NOT package)
@@ -120,9 +151,13 @@ function(select_target out)
         endif()
     endforeach()
 
-    set(${out} ${out_target} PARENT_SCOPE)
-    if(required AND NOT TARGET ${out_target})
-        message(SEND_ERROR "${out} not found.")
+    if(TARGET ${out_target})
+        add_library(${out} INTERFACE)
+        target_link_libraries(${out} INTERFACE ${out_target})
+    endif()
+
+    if(required AND NOT TARGET ${out})
+        message(SEND_ERROR "Target '${out}' not found.")
     endif()
 
 endfunction(select_target)

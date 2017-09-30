@@ -10,3 +10,4 @@ interface
 Makefile
 build
 basic_glib
+install_manifest.txt
