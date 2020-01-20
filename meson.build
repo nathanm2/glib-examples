@@ -1,4 +1,8 @@
 project('glib-examples', 'c')
 
-gobject = dependency('gobject-2.0.pc', version : '>2.53.4')
-executable('children', 'children.c', dependencies : gobject )
+glib = dependency('glib-2.0')
+gobject = dependency('gobject-2.0')
+
+executable('children', 'children.c', dependencies: [glib, gobject])
+executable('gnew', 'gnew.c', dependencies: glib)
+executable('gvariant', 'gvariant.c', dependencies : glib )

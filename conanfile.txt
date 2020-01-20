@@ -1,5 +1,0 @@
-[requires]
-glib/2.54.0-1@dmi/testing
-
-[generators]
-cmake
