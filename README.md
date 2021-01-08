@@ -1,20 +1,19 @@
 Build Instructions
 ------------------
 
-Run meson and ninja:
+To configure and build:
 
-  > meson build
-  > ninja -C build
+  > meson build && meson compile -C build
 
-To use a local build of GLib specify the `PKG_CONFIG_PATH` environment
-variable:
+To specify additional pkgconfig locations:
 
-  > PKG_CONFIG_PATH=~/build/meson-glib/lib/pkgconfig/ meson build
-  > ninja -v -C build
+  > meson build --pkg-config-path ~/build/meson-glib/lib/pkgconfig/
+OR
+  > meson build --pkg-config-path ~/src/glib/build/meson-uninstalled
 
 NOTE: This also sets the RPATH appropriately for us.
 
 By default meson produces debug builds.  To build for release:
 
-  > meson --buildtype release build
+  > meson build --buildtype release
 
