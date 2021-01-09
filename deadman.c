@@ -21,6 +21,7 @@ typedef struct {
     GMainLoop *loop;
     guint duration;
     guint char_time;
+    guint timeout_id;
 } DeadManCtx;
 
 static gboolean timeout_handler(void * data)
@@ -31,14 +32,27 @@ static gboolean timeout_handler(void * data)
 
     printf("time=%u exp=%u\n", cur_time, exp_time);
     if (exp_time > cur_time) {
-        g_timeout_add(exp_time - cur_time, timeout_handler, data);
+        ctx->timeout_id = g_timeout_add(exp_time - cur_time, timeout_handler,
+                                        data);
     } else {
-        printf("Boom!\n");
+        printf("Timeout expired.\n");
         g_main_loop_quit(ctx->loop);
     }
     return FALSE;
 }
 
+
+static void toggle_timeout(DeadManCtx *ctx)
+{
+    if (ctx->timeout_id) {
+        g_source_remove(ctx->timeout_id);
+        printf("Timeout stopped\n");
+        ctx->timeout_id = 0;
+    } else {
+        ctx->timeout_id = g_timeout_add(ctx->duration, timeout_handler, ctx);
+        printf("Timeout (re)started\n");
+    }
+}
 
 static bool process_unichar(gunichar in, DeadManCtx* ctx)
 {
@@ -50,8 +64,13 @@ static bool process_unichar(gunichar in, DeadManCtx* ctx)
         g_main_loop_quit(ctx->loop);
         return false;
     }
+
     ctx->char_time = g_get_monotonic_time() / 1000; /* us => ms */
     printf("%s time=%u\n", tmp, ctx->char_time);
+
+    if (tmp[0] == 's') {
+        toggle_timeout(ctx);
+    }
     return true;
 }
 
@@ -163,7 +182,6 @@ int main(int argc, char *argv[])
         goto cleanup;
 
     ctx.duration = duration * 1000;
-    g_timeout_add(ctx.duration, timeout_handler, &ctx);
 
     /* Let's roll! */
     g_main_loop_run(loop);
