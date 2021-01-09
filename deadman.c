@@ -1,12 +1,14 @@
 /* Dead Man Switch
  *
- * Program exits if user input isn't recieved within X seconds.
+ * Reads characters from standard in until nothing has been entered for a
+ * specified number of seconds and then exits.
  */
 #include <glib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
+#include <locale.h>
 
 static gint duration = 3;
 
@@ -15,29 +17,55 @@ static GOptionEntry entries[] = {
     {0},
 };
 
-static bool stdin_handler(char in)
+typedef struct {
+    GMainLoop *loop;
+    guint duration;
+    guint char_time;
+} DeadManCtx;
+
+static gboolean timeout_handler(void * data)
 {
-    switch (in) {
-    case 'q':
-        printf("Quit\n");
-        g_main_loop_quit(NULL);
-        return false;
-    default:
-        printf("%c\n", in);
+    DeadManCtx *ctx = (DeadManCtx *)data;
+    guint cur_time = g_get_monotonic_time() / 1000;
+    guint exp_time = ctx->char_time + ctx->duration;
+
+    printf("time=%u exp=%u\n", cur_time, exp_time);
+    if (exp_time > cur_time) {
+        g_timeout_add(exp_time - cur_time, timeout_handler, data);
+    } else {
+        printf("Boom!\n");
+        g_main_loop_quit(ctx->loop);
     }
+    return FALSE;
+}
+
+
+static bool process_unichar(gunichar in, DeadManCtx* ctx)
+{
+    gchar tmp[7] = {0}; /* UTF8 character (6) + NULL terminator (1) */
+    g_unichar_to_utf8(in, tmp);
+
+    if (tmp[0] == 'q') {
+        printf("Quit\n");
+        g_main_loop_quit(ctx->loop);
+        return false;
+    }
+    ctx->char_time = g_get_monotonic_time() / 1000; /* us => ms */
+    printf("%s time=%u\n", tmp, ctx->char_time);
     return true;
 }
 
 /* Invoked when something can be read on standard in: */
 static gboolean stdin_cb(GIOChannel *gio, GIOCondition cond, gpointer data)
 {
-    gchar in;
+    gunichar in;
     GError *error = NULL;
+    DeadManCtx *ctx = (DeadManCtx *)data;
 
-    switch (g_io_channel_read_chars(gio, &in, 1, NULL, &error)) {
+    switch (g_io_channel_read_unichar(gio, &in, &error)) {
 
     case G_IO_STATUS_NORMAL:
-        return stdin_handler(in) ? TRUE : FALSE;
+        return process_unichar(in, ctx) ? TRUE : FALSE;
 
     case G_IO_STATUS_ERROR:
         g_printerr("IO error: %s\n", error->message);
@@ -77,9 +105,11 @@ static void enter_raw_mode()
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &term);
 }
 
-static bool setup_stdin(void)
+static bool setup_stdin(DeadManCtx *ctx)
 {
     GIOChannel *stdin_ch;
+    GIOStatus status;
+    GError *error = NULL;
 
     enter_raw_mode();
 
@@ -89,7 +119,13 @@ static bool setup_stdin(void)
         return false;
     }
 
-    if (!g_io_add_watch(stdin_ch, G_IO_IN, stdin_cb, NULL)) {
+    status = g_io_channel_set_flags(stdin_ch, G_IO_FLAG_NONBLOCK, &error);
+    if (status == G_IO_STATUS_ERROR) {
+        g_printerr("Cannot set non-blocking: %s", error->message);
+        return false;
+    }
+
+    if (!g_io_add_watch(stdin_ch, G_IO_IN, stdin_cb, ctx)) {
         g_printerr("Cannot add watch on standard in channel!\n");
         return false;
     }
@@ -103,6 +139,12 @@ int main(int argc, char *argv[])
 {
     GOptionContext *oc;
     GError *error = NULL;
+    GMainLoop *loop;
+    DeadManCtx ctx;
+
+    setlocale(LC_CTYPE, "");
+
+    memset(&ctx, 0, sizeof(ctx));
 
     /* Process CLI arguments: */
     oc = g_option_context_new(NULL);
@@ -113,16 +155,17 @@ int main(int argc, char *argv[])
     }
     g_option_context_free(oc);
 
-    /* Create the event loop:
-        - Use the default context.
-        - Don't set to running.
-    */
-    GMainLoop *loop = g_main_loop_new(NULL, false);
+    /* Create the event loop: */
+    ctx.loop = loop = g_main_loop_new(NULL, false);
 
-    /* Listen on standard input */
-    if (!setup_stdin())
+    /* Setup standard in: */
+    if (!setup_stdin(&ctx))
         goto cleanup;
 
+    ctx.duration = duration * 1000;
+    g_timeout_add(ctx.duration, timeout_handler, &ctx);
+
+    /* Let's roll! */
     g_main_loop_run(loop);
 
 cleanup:
