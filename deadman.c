@@ -4,11 +4,11 @@
  * specified number of seconds and then exits.
  */
 #include <glib.h>
+#include <locale.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
-#include <locale.h>
 
 static gint duration = 3;
 
@@ -24,7 +24,7 @@ typedef struct {
     guint timeout_id;
 } DeadManCtx;
 
-static gboolean timeout_handler(void * data)
+static gboolean timeout_handler(void *data)
 {
     DeadManCtx *ctx = (DeadManCtx *)data;
     guint cur_time = g_get_monotonic_time() / 1000;
@@ -32,15 +32,14 @@ static gboolean timeout_handler(void * data)
 
     printf("time=%u exp=%u\n", cur_time, exp_time);
     if (exp_time > cur_time) {
-        ctx->timeout_id = g_timeout_add(exp_time - cur_time, timeout_handler,
-                                        data);
+        ctx->timeout_id =
+            g_timeout_add(exp_time - cur_time, timeout_handler, data);
     } else {
         printf("Timeout expired.\n");
         g_main_loop_quit(ctx->loop);
     }
     return FALSE;
 }
-
 
 static void toggle_timeout(DeadManCtx *ctx)
 {
@@ -54,7 +53,7 @@ static void toggle_timeout(DeadManCtx *ctx)
     }
 }
 
-static bool process_unichar(gunichar in, DeadManCtx* ctx)
+static bool process_unichar(gunichar in, DeadManCtx *ctx)
 {
     gchar tmp[7] = {0}; /* UTF8 character (6) + NULL terminator (1) */
     g_unichar_to_utf8(in, tmp);
@@ -130,7 +129,7 @@ static bool setup_stdin(DeadManCtx *ctx)
     GIOStatus status;
     GError *error = NULL;
 
-    enter_raw_mode();
+    // enter_raw_mode();
 
     stdin_ch = g_io_channel_unix_new(STDIN_FILENO);
     if (!stdin_ch) {
@@ -143,6 +142,9 @@ static bool setup_stdin(DeadManCtx *ctx)
         g_printerr("Cannot set non-blocking: %s", error->message);
         return false;
     }
+
+    // status = g_io_channel_set_flags(stdin_ch, 0, &error);
+    exit(0);
 
     if (!g_io_add_watch(stdin_ch, G_IO_IN, stdin_cb, ctx)) {
         g_printerr("Cannot add watch on standard in channel!\n");
